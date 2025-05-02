@@ -1,3 +1,21 @@
+#############################################################################################################
+#                                       Skin Cancer Detection Pro                                           #
+#                                       A Python GUI Application                                            #
+#############################################################################################################
+
+
+##############################################################################################################
+# Import necessary libraries                                                                                 #
+# This application uses customtkinter for the GUI, OpenCV for image processing,                              #
+# NumPy for numerical operations, PIL for image handling, psycopg2 for PostgreSQL database interaction,      #
+# passlib for password hashing, cryptography for encryption, and fpdf for PDF generation.                    #
+# The application also uses webbrowser for opening files and logging for error tracking.                     #
+# The config module contains database configuration and encryption key.                                      #       
+# The application is designed to be user-friendly and secure, with features for user registration,           #
+# login, image upload, analysis, and report generation.                                                      #
+# The code is structured into classes for better organization and maintainability.                           #
+# Import standard libraries                                                                                  #
+##############################################################################################################
 import os
 import uuid
 import shutil
@@ -15,31 +33,91 @@ from datetime import datetime
 from fpdf import FPDF
 from config import DB_CONFIG, ENCRYPTION_KEY, MAX_IMAGE_SIZE, UPLOAD_DIR
 
-# Setup logging to keep track of what's happening in the app
+#############################################################################################################
+#                Setup logging to keep track of what's happening in the app                                  #
+#               This is useful for debugging and understanding the flow of the application.                  #
+#              The log file will be created in the same directory as the script.                             #
+#             The log level is set to INFO, which means it will capture all messages at this level and above.#
+#            The log format includes the timestamp, log level, and message.                                  #
+#           The log file will be named 'app.log'.                                                            #
+#          The logging module is a standard Python library for logging messages.                             #
+#         The logging configuration is set up to log messages to a file and the console.                     #
+# ############################################################################################################ 
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Make sure the upload directory exists for storing images
+#############################################################################################################
+#                         Make sure the upload directory exists for storing images                          #
+#                        This is where the uploaded images will be saved before processing.                 #
+#                       The directory is created if it doesn't already exist.                               #
+#                      The os module is used for interacting with the operating system.                     #
+#############################################################################################################
+
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
 
-# Set up encryption for securing image paths in the database
+#############################################################################################################
+#                            Set up encryption for securing image paths in the database                     #
+#                           The cryptography library is used for encryption and decryption.                 #
+#                          The Fernet symmetric encryption is used for secure data storage.                 #
+#                         The encryption key is stored in a separate config file for security.              #
+#                        The key should be kept secret and not hard-coded in the application.               #
+#                       The encryption key is generated using the cryptography library.                     #
+#                      The key is used to create a Fernet object for encryption and decryption.             #
+#############################################################################################################
 CIPHER = Fernet(ENCRYPTION_KEY)
 
-# --- Database Management ---
+###############################################################################################################
+#                                         Database Management                                                 #
+#                                       This class handles all database interactions.                         #
+#                                      It connects to the PostgreSQL database and manages tables.             #
+#                                     It provides methods for user registration, image upload, and analysis.  #
+#                                    The psycopg2 library is used for PostgreSQL database interaction.        #
+#                                   The passlib library is used for password hashing and verification.        #
+#                                  The cryptography library is used for encrypting image paths.               #
+#                                 The logging module is used for error tracking and debugging.                #
+###############################################################################################################
 class Database:
-    """Manages all database interactions for the Skin Cancer Detection app."""
+##############################################################################################################
+#       Manages all database interactions for the Skin Cancer Detection app.                                 #
+#      This includes connecting to the database, creating tables, and performing CRUD operations.            #
+#     The psycopg2 library is used for PostgreSQL database interaction.                                      #
+##############################################################################################################                                
     
     def __init__(self):
-        """Connect to the PostgreSQL database and set up tables."""
+    
+    
+##############################################################################################################
+#                               Connect to the PostgreSQL database and set up tables.                        #
+#                              The psycopg2 library is used for PostgreSQL database interaction.             #
+#                             The connection parameters are stored in a separate config file for security.   #
+#                            The connection is established using the psycopg2.connect() method.              #
+#                           The connection parameters include the database name, user, password, and host.   #
+##############################################################################################################
+
         self.conn = psycopg2.connect(**DB_CONFIG)
         self.cur = self.conn.cursor()
-        self.migrate_schema()  # Update schema if needed
-        self.create_tables()   # Create tables if they don't exist
 
+
+###############################################################################################################
+#                                        Update schema if needed                                              #
+#                                      This includes adding new columns to existing tables.                   #
+###############################################################################################################       
+        self.migrate_schema()  
+##############################################################################################################
+#                                        Create tables if they don’t exist.                                   #
+###############################################################################################################
+        self.create_tables()   
+
+###############################################################################################################
+#                       Update the database schema by adding new columns if they’re missing.                  #
+###############################################################################################################
     def migrate_schema(self):
-        """Update the database schema by adding new columns if they’re missing."""
         try:
-            # Add columns to the analyses table if they don’t already exist
+
+###############################################################################################################
+#                    Add columns to the analyses table if they don’t already exist                            #
+###############################################################################################################
             self.cur.execute("ALTER TABLE analyses ADD COLUMN IF NOT EXISTS cancer_probability FLOAT")
             self.cur.execute("ALTER TABLE analyses ADD COLUMN IF NOT EXISTS advice TEXT")
             self.cur.execute("ALTER TABLE analyses ADD COLUMN IF NOT EXISTS cancer_type VARCHAR(50)")
@@ -50,7 +128,10 @@ class Database:
             self.conn.rollback()
 
     def create_tables(self):
-        """Create the required tables in the database if they don’t exist."""
+
+###############################################################################################################
+#                       Create the required tables in the database if they don’t exist.                       #
+###############################################################################################################
         table_queries = [
             """CREATE TABLE IF NOT EXISTS users (
                 user_id SERIAL PRIMARY KEY,
@@ -81,7 +162,10 @@ class Database:
                 self.conn.rollback()
 
     def delete_analysis(self, analysis_id):
-        """Remove an analysis entry from the database."""
+###############################################################################################################
+#                       Remove an analysis entry from the database.                                           #
+###############################################################################################################
+
         query = "DELETE FROM analyses WHERE analysis_id = %s"
         try:
             self.cur.execute(query, (analysis_id,))
@@ -107,7 +191,11 @@ class Database:
             return None
 
     def get_user_by_username(self, username):
-        """Fetch user details by their username."""
+
+################################################################################################################
+#                               Fetch user details by their username.                                          #
+################################################################################################################
+
         query = "SELECT user_id, username, password_hash, email FROM users WHERE username = %s"
         try:
             self.cur.execute(query, (username,))
@@ -117,7 +205,11 @@ class Database:
             return None
 
     def insert_image(self, user_id, image_path):
-        """Store an image path in the database, encrypted for security."""
+
+################################################################################################################
+#                       Store an image path in the database, encrypted for security.                           #
+################################################################################################################
+
         encrypted_path = CIPHER.encrypt(image_path.encode()).decode()
         query = "INSERT INTO images (user_id, image_path) VALUES (%s, %s) RETURNING image_id"
         try:
@@ -131,7 +223,10 @@ class Database:
             return None
 
     def insert_analysis(self, image_id, skin_ratio, cancer_probability, cancer_type, advice):
-        """Save analysis results linked to an image."""
+
+################################################################################################################
+#                  Save analysis results linked to an image.                                                   #
+################################################################################################################
         query = """INSERT INTO analyses (image_id, skin_ratio, cancer_probability, cancer_type, advice)
                    VALUES (%s, %s, %s, %s, %s) RETURNING analysis_id"""
         try:
