@@ -1,0 +1,72 @@
+# Medical Device Open Source Agreement (MD-OSA) v2.0
+
+## Preamble
+
+This license governs the open-source distribution and usage of **Skin Cancer Detection Pro**, a medical imaging and diagnostic assistance system. It is designed to balance open collaboration with the safety and regulatory concerns inherent in clinical software.
+
+---
+
+## 1. Permissions
+
+Subject to the conditions below, the Software may be used, copied, modified, and distributed for:
+
+- **Research & Education** purposes
+- **Internal clinical validation**
+- **Non-commercial deployment in academic institutions**
+
+**Commercial usage**, including deployment in hospitals or integration into medical products, **requires explicit licensing and FDA or equivalent certification.**
+
+---
+
+## 2. Conditions
+
+The following conditions apply:
+
+- You **must not** use this Software for patient diagnosis or treatment **without certification** and **supervision by licensed medical professionals**.
+- **Redistributions must retain** this license, the full list of contributors, and any notices of intellectual property ownership.
+- **Contributions must** be HIPAA-compliant and avoid inclusion of PHI (Protected Health Information).
+- The Software **must not be branded or marketed as a standalone diagnostic tool** unless cleared by regulatory bodies.
+
+---
+
+## 3. Restrictions
+
+- You **may not** use the diagnostic algorithms for proprietary commercial applications without a separate license.
+- **No warranties** are provided regarding the accuracy, safety, or clinical suitability of this software.
+- **Reverse engineering** for the purpose of circumvention of commercial licensing is prohibited.
+
+---
+
+## 4. Disclaimer
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. THIS INCLUDES BUT IS NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT.
+
+This software is **not certified by the FDA**, CE, or any other medical regulatory agency and **must not** be used for clinical decision-making unless validated under applicable laws.
+
+---
+
+## 5. Liability
+
+Under no circumstances shall the authors, contributors, or affiliated institutions be liable for any **clinical errors**, misdiagnoses, **loss of life**, **malpractice claims**, or **regulatory violations** arising from the use of this software.
+
+---
+
+## 6. Patents
+
+This software may include or reference diagnostic techniques or algorithms protected under patent. Use of such methods may require **separate licensing** from the patent holders.
+
+---
+
+## 7. Commercial Licensing
+
+To use this software commercially (e.g., in a hospital, telemedicine platform, or product offering), you must:
+
+- Obtain a commercial license
+- Undergo a regulatory approval process (e.g., FDA 510(k))
+- Agree to periodic security audits and compliance reviews
+
+Contact **shiboshreeroycse@gmail.com** for inquiries regarding commercial usage or regulatory consulting.
+
+---
+
+© 2025 Shiboshree Roy. All rights reserved.
