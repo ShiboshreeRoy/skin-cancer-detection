@@ -240,7 +240,11 @@ class Database:
             return None
 
     def get_user_analyses(self, user_id):
-        """Retrieve all analyses for a given user, decrypting image paths."""
+
+################################################################################################################
+#        Retrieve all analyses for a given user, decrypting image paths.                                       #
+#                                                                                                              #
+################################################################################################################
         query = """SELECT a.analysis_id, a.image_id, a.analysis_date, a.skin_ratio,
                           a.cancer_probability, a.cancer_type, a.advice, i.image_path
                    FROM analyses a JOIN images i ON a.image_id = i.image_id
@@ -260,7 +264,10 @@ class Database:
             return []
 
     def get_user_registration_date(self, user_id):
-        """Get the user’s registration date for reporting."""
+################################################################################################################
+#                    Get the user’s registration date for reporting.                                           #
+################################################################################################################
+
         query = "SELECT registration_date FROM users WHERE user_id = %s"
         try:
             self.cur.execute(query, (user_id,))
@@ -271,20 +278,39 @@ class Database:
             return "N/A"
 
     def close(self):
-        """Safely close the database connection."""
+################################################################################################################
+#                                 Safely close the database connection.                                        #
+################################################################################################################
         self.cur.close()
         self.conn.close()
 
-# --- Skin Detection Logic ---
+
+##############################################################################################################
+#                                      Skin Detection Logic                                                   #
+#                                    This class handles skin detection and cancer simulation.                 #
+###############################################################################################################
 class SkinDetector:
-    """Handles skin detection and cancer simulation in images."""
-    
+
     def detect_skin(self, image_path):
-        """Identify skin areas in an image using HSV color space."""
+
+##############################################################################################################
+#                Identify skin areas in an image using HSV color space.                                      #
+#               This method uses OpenCV to read the image and apply a mask.                                  #
+#              The mask is created based on HSV color ranges for skin tones.                                 #
+#             The skin detection is a simplified approach and may not be 100% accurate.                      #
+#            The skin coverage ratio is calculated as the number of skin pixels divided by total pixels.     #
+##############################################################################################################
+
         image = cv2.imread(image_path)
         if image is None:
             raise ValueError("Couldn’t load the image file.")
-        # Convert to HSV for better skin detection
+        
+
+################################################################################################################
+#                           Convert to HSV for better skin detection                                           #
+#                          and apply a mask to isolate skin areas.                                             #
+################################################################################################################
+
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         lower_skin = np.array([0, 20, 70], dtype=np.uint8)
         upper_skin = np.array([20, 255, 255], dtype=np.uint8)
@@ -295,15 +321,38 @@ class SkinDetector:
         return skin_image, skin_pixels / total_pixels
 
     def detect_cancer(self, image_path):
-        """Simulate cancer detection based on grayscale intensity."""
+##############################################################################################################
+#                                Simulate cancer detection based on grayscale intensity.                     #
+#                                         Load the image in grayscale                                        #
+##############################################################################################################
+
         image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
         if image is None:
             raise ValueError("Failed to load image for cancer detection.")
         avg_intensity = np.mean(image)
-        probability = min(max((avg_intensity - 100) / 155, 0), 1)  # Normalize to 0-1
-        cancer_detected = probability >= 0.3  # Threshold for detection
 
-        # Classify cancer type based on intensity (simplified simulation)
+##############################################################################################################
+#                                      Normalize to 0-1                                                      #
+#                                     and simulate cancer probability based on intensity.                    #
+#                                    This is a simplified simulation and not medically accurate.             #
+#                                   The probability is calculated based on average intensity.                #
+##############################################################################################################
+
+        probability = min(max((avg_intensity - 100) / 155, 0), 1)  
+
+###############################################################################################################
+#                                        Threshold for detection                                              #
+###############################################################################################################
+
+
+        cancer_detected = probability >= 0.3  
+
+
+###############################################################################################################
+#                       Classify cancer type based on intensity (simplified simulation)                       #
+###############################################################################################################
+
+
         if avg_intensity <= 100:
             cancer_type = "Basal Cell Carcinoma"
             prevalence = "~80% of skin cancers"
@@ -334,16 +383,35 @@ class SkinDetector:
         advice += "\n\nNote: This is an automated analysis. Please consult a dermatologist for a professional review."
         return probability, cancer_type, prevalence, advice, risk_level, cancer_detected
 
-# --- PDF Report Generation ---
+
+
+##############################################################################################################
+#                                              PDF Report Generation                                          # 
+#                                    This class generates a PDF report of the analysis.                       #
+#                                   The fpdf library is used for creating PDF documents.                      #
+#                                  The report includes patient information, analysis results, and images.     #
+#                                 The report is designed to be professional and easy to read.                 #
+#                                The report includes a header, footer, and sections for different content.    #
+#                               The report is generated in a standard PDF format for easy sharing.            #
+###############################################################################################################
+
+
 class MedicalReport(FPDF):
-    """Generates a professional PDF report for skin cancer analysis."""
+
+###############################################################################################################
+#                      Generates a professional PDF report for skin cancer analysis.                          #
+#                     The report includes patient information, analysis results, and images.                  #
+# #############################################################################################################                                  
     
     def __init__(self, icon_path='icon.png'):
         super().__init__()
         self.icon_path = icon_path
 
     def header(self):
-        """Add a header with an icon and timestamp to each page."""
+##############################################################################################################
+#                             Add a header with an icon and timestamp to each page.                          #
+##############################################################################################################
+
         try:
             self.image(self.icon_path, 10, 8, 33)
         except Exception as e:
@@ -355,14 +423,21 @@ class MedicalReport(FPDF):
         self.ln(10)
 
     def footer(self):
-        """Add page numbers to the footer."""
+##############################################################################################################
+#                                    Add page numbers to the footer.                                         #
+##############################################################################################################
+
         self.set_y(-15)
         self.set_font('Arial', 'I', 8)
         self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
     def add_report_content(self, user_data, analysis_data, image_path):
-        """Fill the report with patient info, image, and analysis results."""
-        # Patient Info Section
+##############################################################################################################
+#                    Fill the report with patient info, image, and analysis results.                         #
+#                             Patient Info Section                                                           #
+##############################################################################################################
+
+
         self.set_font('Arial', 'B', 14)
         self.cell(0, 10, 'Patient Information', 0, 1)
         self.set_font('Arial', '', 12)
@@ -371,8 +446,11 @@ class MedicalReport(FPDF):
         self.cell(0, 10, f'Email: {user_data["email"]}', 0, 1)
         self.cell(0, 10, f'Registration Date: {user_data["registration_date"]}', 0, 1)
         self.ln(10)
+###############################################################################################################
+#                                           Clinical Image Section                                            #
+###############################################################################################################
 
-        # Clinical Image Section
+
         self.set_font('Arial', 'B', 14)
         self.cell(0, 10, 'Clinical Image', 0, 1)
         try:
@@ -382,8 +460,11 @@ class MedicalReport(FPDF):
             self.set_font('Arial', 'I', 10)
             self.cell(0, 10, f'Image unavailable: {str(e)}', 0, 1)
             self.ln(10)
+##############################################################################################################
+#                                            Diagnostic Findings Table                                      #
+##############################################################################################################
 
-        # Diagnostic Findings Table
+
         self.set_font('Arial', 'B', 14)
         self.cell(0, 10, 'Diagnostic Findings', 0, 1)
         self.set_fill_color(240, 240, 240)
@@ -816,7 +897,11 @@ class HistoryPage(ctk.CTkFrame):
         self.preview_text.insert("end", text)
 
     def delete_analysis(self, analysis_id):
-        """Remove an analysis from the database and refresh the list."""
+
+###############################################################################################################
+#               Remove an analysis from the database and refresh the list.                                    #
+###############################################################################################################
+
         if self.parent.db.delete_analysis(analysis_id):
             self.load_history(self.history_frame)
             self.preview_image.configure(image=None, text="Select analysis to view")
@@ -826,10 +911,16 @@ class HistoryPage(ctk.CTkFrame):
             self.preview_text.delete("1.0", "end")
             self.preview_text.insert("end", "Deletion failed")
             self.status_bar.configure(text="Deletion failed", text_color="red")
+#################################################################################################################
+#                                                 About Page                                                    #
+#                               Displays information about the app, its developers, and team members.           #
+#################################################################################################################
 
-# --- About Page ---
 class AboutPage(ctk.CTkFrame):
-    """Displays information about the app and its team."""
+
+###############################################################################################################
+#                          Displays information about the app and its team.                                   #
+###############################################################################################################
     
     def __init__(self, parent):
         super().__init__(parent)
@@ -882,11 +973,20 @@ class AboutPage(ctk.CTkFrame):
 
         ctk.CTkButton(frame, text="Back to Dashboard", command=lambda: self.parent.show_page("DashboardPage"),
                       width=250).pack(pady=20)
+        
 
-# --- Main Application ---
+######################################################################################################
+#                                             Main Application                                       #
+#    This class initializes the main application window and handles page transitions.                #
+#    It uses the customtkinter library for a modern UI and manages user sessions and database access.#
+#    The app includes login, registration, dashboard, history, and about pages.                      #
+######################################################################################################
 class MedicalApp(ctk.CTk):
-    """The main window and controller for the Skin Cancer Detection app."""
-    
+
+##################################################################################################
+#                         The main window and controller for the Skin Cancer Detection app.      #
+##################################################################################################
+
     def __init__(self):
         super().__init__()
         self.title("Skin Cancer Detection")
@@ -912,14 +1012,23 @@ class MedicalApp(ctk.CTk):
         self.show_page("LoginPage")
 
     def show_page(self, page_name):
-        """Switch between different pages in the app."""
+
+###########################################################################################
+#                       Switch between different pages in the app.                        #
+###########################################################################################
+
+
         if hasattr(self, "current_page"):
             self.current_page.destroy()
         self.current_page = self.pages[page_name](self)
         self.current_page.pack(expand=True, fill="both")
 
     def on_closing(self):
-        """Clean up when the app is closed."""
+
+###########################################################################################
+#                                Clean up when the app is closed                          #
+###########################################################################################
+
         self.db.close()
         self.destroy()
 
