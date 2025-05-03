@@ -3,18 +3,21 @@
 #                                       A Python GUI Application                                            #
 #############################################################################################################
 
-
 ##############################################################################################################
 # Import necessary libraries                                                                                 #
-# This application uses customtkinter for the GUI, OpenCV for image processing,                              #
-# NumPy for numerical operations, PIL for image handling, psycopg2 for PostgreSQL database interaction,      #
-# passlib for password hashing, cryptography for encryption, and fpdf for PDF generation.                    #
-# The application also uses webbrowser for opening files and logging for error tracking.                     #
-# The config module contains database configuration and encryption key.                                      #       
-# The application is designed to be user-friendly and secure, with features for user registration,           #
-# login, image upload, analysis, and report generation.                                                      #
-# The code is structured into classes for better organization and maintainability.                           #
-# Import standard libraries                                                                                  #
+# - customtkinter: Modern GUI framework                                                                     #
+# - OpenCV (cv2): Advanced image processing                                                                 #
+# - NumPy: Numerical operations                                                                             #
+# - PIL: Image handling                                                                                     #
+# - psycopg2: PostgreSQL database interaction                                                               #
+# - passlib (bcrypt): Password hashing                                                                      #
+# - cryptography (Fernet): Data encryption                                                                  #
+# - fpdf: PDF report generation                                                                             #
+# - webbrowser: Open files                                                                                  #
+# - logging: Error tracking and debugging                                                                   #
+# - datetime: Timestamp management                                                                          #
+# - os, uuid, shutil, tempfile: File and directory operations                                               #
+# - config: External configuration (DB_CONFIG, ENCRYPTION_KEY, MAX_IMAGE_SIZE, UPLOAD_DIR)                  #
 ##############################################################################################################
 import os
 import uuid
@@ -34,90 +37,46 @@ from fpdf import FPDF
 from config import DB_CONFIG, ENCRYPTION_KEY, MAX_IMAGE_SIZE, UPLOAD_DIR
 
 #############################################################################################################
-#                Setup logging to keep track of what's happening in the app                                  #
-#               This is useful for debugging and understanding the flow of the application.                  #
-#              The log file will be created in the same directory as the script.                             #
-#             The log level is set to INFO, which means it will capture all messages at this level and above.#
-#            The log format includes the timestamp, log level, and message.                                  #
-#           The log file will be named 'app.log'.                                                            #
-#          The logging module is a standard Python library for logging messages.                             #
-#         The logging configuration is set up to log messages to a file and the console.                     #
-# ############################################################################################################ 
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Setup logging                                                                                             #
+# Logs are written to 'app.log' with timestamp, level, and message for debugging and monitoring.            #
+#############################################################################################################
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('app.log'),
+        logging.StreamHandler()
+    ]
+)
 
 #############################################################################################################
-#                         Make sure the upload directory exists for storing images                          #
-#                        This is where the uploaded images will be saved before processing.                 #
-#                       The directory is created if it doesn't already exist.                               #
-#                      The os module is used for interacting with the operating system.                     #
+# Ensure upload directory exists                                                                            #
+# Creates UPLOAD_DIR if it doesn’t exist to store uploaded images securely.                                #
 #############################################################################################################
-
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
 
 #############################################################################################################
-#                            Set up encryption for securing image paths in the database                     #
-#                           The cryptography library is used for encryption and decryption.                 #
-#                          The Fernet symmetric encryption is used for secure data storage.                 #
-#                         The encryption key is stored in a separate config file for security.              #
-#                        The key should be kept secret and not hard-coded in the application.               #
-#                       The encryption key is generated using the cryptography library.                     #
-#                      The key is used to create a Fernet object for encryption and decryption.             #
+# Setup encryption                                                                                          #
+# Uses Fernet symmetric encryption with a key from config.py to secure sensitive data like image paths.     #
 #############################################################################################################
 CIPHER = Fernet(ENCRYPTION_KEY)
 
 ###############################################################################################################
-#                                         Database Management                                                 #
-#                                       This class handles all database interactions.                         #
-#                                      It connects to the PostgreSQL database and manages tables.             #
-#                                     It provides methods for user registration, image upload, and analysis.  #
-#                                    The psycopg2 library is used for PostgreSQL database interaction.        #
-#                                   The passlib library is used for password hashing and verification.        #
-#                                  The cryptography library is used for encrypting image paths.               #
-#                                 The logging module is used for error tracking and debugging.                #
+# Database Management Class                                                                                   #
+# Handles all PostgreSQL interactions: user management, image storage, and analysis tracking.                 #
 ###############################################################################################################
 class Database:
-##############################################################################################################
-#       Manages all database interactions for the Skin Cancer Detection app.                                 #
-#      This includes connecting to the database, creating tables, and performing CRUD operations.            #
-#     The psycopg2 library is used for PostgreSQL database interaction.                                      #
-##############################################################################################################                                
-    
     def __init__(self):
-    
-    
-##############################################################################################################
-#                               Connect to the PostgreSQL database and set up tables.                        #
-#                              The psycopg2 library is used for PostgreSQL database interaction.             #
-#                             The connection parameters are stored in a separate config file for security.   #
-#                            The connection is established using the psycopg2.connect() method.              #
-#                           The connection parameters include the database name, user, password, and host.   #
-##############################################################################################################
-
+        """Initialize database connection and setup schema."""
         self.conn = psycopg2.connect(**DB_CONFIG)
         self.cur = self.conn.cursor()
+        self.migrate_schema()
+        self.create_tables()
 
-
-###############################################################################################################
-#                                        Update schema if needed                                              #
-#                                      This includes adding new columns to existing tables.                   #
-###############################################################################################################       
-        self.migrate_schema()  
-##############################################################################################################
-#                                        Create tables if they don’t exist.                                   #
-###############################################################################################################
-        self.create_tables()   
-
-###############################################################################################################
-#                       Update the database schema by adding new columns if they’re missing.                  #
-###############################################################################################################
     def migrate_schema(self):
+        """Add new columns to existing tables if missing."""
         try:
-
-###############################################################################################################
-#                    Add columns to the analyses table if they don’t already exist                            #
-###############################################################################################################
             self.cur.execute("ALTER TABLE analyses ADD COLUMN IF NOT EXISTS cancer_probability FLOAT")
             self.cur.execute("ALTER TABLE analyses ADD COLUMN IF NOT EXISTS advice TEXT")
             self.cur.execute("ALTER TABLE analyses ADD COLUMN IF NOT EXISTS cancer_type VARCHAR(50)")
@@ -128,10 +87,7 @@ class Database:
             self.conn.rollback()
 
     def create_tables(self):
-
-###############################################################################################################
-#                       Create the required tables in the database if they don’t exist.                       #
-###############################################################################################################
+        """Create necessary tables if they don’t exist."""
         table_queries = [
             """CREATE TABLE IF NOT EXISTS users (
                 user_id SERIAL PRIMARY KEY,
@@ -162,10 +118,7 @@ class Database:
                 self.conn.rollback()
 
     def delete_analysis(self, analysis_id):
-###############################################################################################################
-#                       Remove an analysis entry from the database.                                           #
-###############################################################################################################
-
+        """Delete an analysis record by ID."""
         query = "DELETE FROM analyses WHERE analysis_id = %s"
         try:
             self.cur.execute(query, (analysis_id,))
@@ -177,7 +130,7 @@ class Database:
             return False
 
     def insert_user(self, username, password_hash, email):
-        """Add a new user to the database."""
+        """Insert a new user with hashed password."""
         query = """INSERT INTO users (username, password_hash, email)
                    VALUES (%s, %s, %s) RETURNING user_id"""
         try:
@@ -191,11 +144,7 @@ class Database:
             return None
 
     def get_user_by_username(self, username):
-
-################################################################################################################
-#                               Fetch user details by their username.                                          #
-################################################################################################################
-
+        """Retrieve user data by username."""
         query = "SELECT user_id, username, password_hash, email FROM users WHERE username = %s"
         try:
             self.cur.execute(query, (username,))
@@ -205,11 +154,7 @@ class Database:
             return None
 
     def insert_image(self, user_id, image_path):
-
-################################################################################################################
-#                       Store an image path in the database, encrypted for security.                           #
-################################################################################################################
-
+        """Store an encrypted image path linked to a user."""
         encrypted_path = CIPHER.encrypt(image_path.encode()).decode()
         query = "INSERT INTO images (user_id, image_path) VALUES (%s, %s) RETURNING image_id"
         try:
@@ -223,10 +168,7 @@ class Database:
             return None
 
     def insert_analysis(self, image_id, skin_ratio, cancer_probability, cancer_type, advice):
-
-################################################################################################################
-#                  Save analysis results linked to an image.                                                   #
-################################################################################################################
+        """Save analysis results linked to an image."""
         query = """INSERT INTO analyses (image_id, skin_ratio, cancer_probability, cancer_type, advice)
                    VALUES (%s, %s, %s, %s, %s) RETURNING analysis_id"""
         try:
@@ -240,11 +182,7 @@ class Database:
             return None
 
     def get_user_analyses(self, user_id):
-
-################################################################################################################
-#        Retrieve all analyses for a given user, decrypting image paths.                                       #
-#                                                                                                              #
-################################################################################################################
+        """Retrieve all analyses for a user with decrypted image paths."""
         query = """SELECT a.analysis_id, a.image_id, a.analysis_date, a.skin_ratio,
                           a.cancer_probability, a.cancer_type, a.advice, i.image_path
                    FROM analyses a JOIN images i ON a.image_id = i.image_id
@@ -264,10 +202,7 @@ class Database:
             return []
 
     def get_user_registration_date(self, user_id):
-################################################################################################################
-#                    Get the user’s registration date for reporting.                                           #
-################################################################################################################
-
+        """Get user registration date for reporting."""
         query = "SELECT registration_date FROM users WHERE user_id = %s"
         try:
             self.cur.execute(query, (user_id,))
@@ -278,92 +213,77 @@ class Database:
             return "N/A"
 
     def close(self):
-################################################################################################################
-#                                 Safely close the database connection.                                        #
-################################################################################################################
+        """Close database connection safely."""
         self.cur.close()
         self.conn.close()
 
-
-##############################################################################################################
-#                                      Skin Detection Logic                                                   #
-#                                    This class handles skin detection and cancer simulation.                 #
+###############################################################################################################
+# Skin Detection and Cancer Simulation Class                                                                  #
+# Enhanced with YCrCb color space for skin detection and simulated cancer features like asymmetry.            #
 ###############################################################################################################
 class SkinDetector:
-
     def detect_skin(self, image_path):
-
-##############################################################################################################
-#                Identify skin areas in an image using HSV color space.                                      #
-#               This method uses OpenCV to read the image and apply a mask.                                  #
-#              The mask is created based on HSV color ranges for skin tones.                                 #
-#             The skin detection is a simplified approach and may not be 100% accurate.                      #
-#            The skin coverage ratio is calculated as the number of skin pixels divided by total pixels.     #
-##############################################################################################################
-
+        """Detect skin areas using YCrCb color space with morphological cleanup."""
         image = cv2.imread(image_path)
         if image is None:
             raise ValueError("Couldn’t load the image file.")
-        
 
-################################################################################################################
-#                           Convert to HSV for better skin detection                                           #
-#                          and apply a mask to isolate skin areas.                                             #
-################################################################################################################
+        # Convert to YCrCb color space (better for skin detection)
+        ycrcb = cv2.cvtColor(image, cv2.COLOR_BGR2YCrCb)
+        lower_skin = np.array([0, 133, 77], dtype=np.uint8)
+        upper_skin = np.array([255, 173, 127], dtype=np.uint8)
+        mask = cv2.inRange(ycrcb, lower_skin, upper_skin)
 
-        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        lower_skin = np.array([0, 20, 70], dtype=np.uint8)
-        upper_skin = np.array([20, 255, 255], dtype=np.uint8)
-        mask = cv2.inRange(hsv, lower_skin, upper_skin)
+        # Morphological operations to refine mask
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+
         skin_pixels = cv2.countNonZero(mask)
         total_pixels = image.shape[0] * image.shape[1]
         skin_image = cv2.bitwise_and(image, image, mask=mask)
+
         return skin_image, skin_pixels / total_pixels
 
     def detect_cancer(self, image_path):
-##############################################################################################################
-#                                Simulate cancer detection based on grayscale intensity.                     #
-#                                         Load the image in grayscale                                        #
-##############################################################################################################
-
-        image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        """Simulate cancer detection using asymmetry and color variation."""
+        image = cv2.imread(image_path, cv2.IMREAD_COLOR)
         if image is None:
             raise ValueError("Failed to load image for cancer detection.")
-        avg_intensity = np.mean(image)
 
-##############################################################################################################
-#                                      Normalize to 0-1                                                      #
-#                                     and simulate cancer probability based on intensity.                    #
-#                                    This is a simplified simulation and not medically accurate.             #
-#                                   The probability is calculated based on average intensity.                #
-##############################################################################################################
+        # Convert to grayscale for asymmetry analysis
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        height, width = gray.shape
+        left = gray[:, :width//2]
+        right = gray[:, width//2:]
+        asymmetry = np.abs(np.mean(left) - np.mean(right)) / 255.0
 
-        probability = min(max((avg_intensity - 100) / 155, 0), 1)  
+        # Color variation from RGB channels
+        color_variation = np.std(image, axis=(0, 1)) / 255.0
+        color_variation = np.mean(color_variation)
 
-###############################################################################################################
-#                                        Threshold for detection                                              #
-###############################################################################################################
+        # Simulated probability (arbitrary but more nuanced)
+        probability = (asymmetry + color_variation) / 2
+        probability = min(max(probability, 0), 1)
+        cancer_detected = probability >= 0.3
 
-
-        cancer_detected = probability >= 0.3  
-
-
-###############################################################################################################
-#                       Classify cancer type based on intensity (simplified simulation)                       #
-###############################################################################################################
-
-
-        if avg_intensity <= 100:
+        # Classify cancer type based on probability
+        if probability <= 0.3:
+            cancer_type = "No Cancer Detected"
+            prevalence = "N/A"
+            advice = "No signs of malignancy. Continue with annual skin checks."
+            risk_level = "low"
+        elif probability <= 0.5:
             cancer_type = "Basal Cell Carcinoma"
             prevalence = "~80% of skin cancers"
-            advice = "Basal Cell Carcinoma detected. Common but less severe. Consult a dermatologist for removal options."
+            advice = "Basal Cell Carcinoma detected. Common but less severe. Consult a dermatologist."
             risk_level = "low"
-        elif avg_intensity <= 150:
+        elif probability <= 0.7:
             cancer_type = "Squamous Cell Carcinoma"
             prevalence = "~16% of skin cancers"
-            advice = "Squamous Cell Carcinoma detected. Moderate risk. See a dermatologist soon for a possible biopsy."
+            advice = "Squamous Cell Carcinoma detected. Moderate risk. See a dermatologist soon."
             risk_level = "moderate"
-        elif avg_intensity <= 200:
+        elif probability <= 0.9:
             cancer_type = "Melanoma"
             prevalence = "~4% of skin cancers"
             advice = "Melanoma detected. High risk. Urgently consult an oncologist within 48 hours."
@@ -371,47 +291,23 @@ class SkinDetector:
         else:
             cancer_type = "Merkel Cell Carcinoma"
             prevalence = "<1% of skin cancers"
-            advice = "Merkel Cell Carcinoma detected. Rare and aggressive. Seek immediate medical attention."
+            advice = "Merkel Cell Carcinoma detected. Rare and aggressive. Seek immediate attention."
             risk_level = "high"
 
-        if not cancer_detected:
-            cancer_type = "No Cancer Detected"
-            prevalence = "N/A"
-            advice = "No signs of malignancy. Continue with annual skin checks."
-            risk_level = "low"
-
-        advice += "\n\nNote: This is an automated analysis. Please consult a dermatologist for a professional review."
+        advice += "\n\nNote: This is a simulation. Consult a dermatologist for professional diagnosis."
         return probability, cancer_type, prevalence, advice, risk_level, cancer_detected
 
-
-
-##############################################################################################################
-#                                              PDF Report Generation                                          # 
-#                                    This class generates a PDF report of the analysis.                       #
-#                                   The fpdf library is used for creating PDF documents.                      #
-#                                  The report includes patient information, analysis results, and images.     #
-#                                 The report is designed to be professional and easy to read.                 #
-#                                The report includes a header, footer, and sections for different content.    #
-#                               The report is generated in a standard PDF format for easy sharing.            #
 ###############################################################################################################
-
-
+# PDF Report Generation Class                                                                                 #
+# Generates professional PDF reports with patient info, analysis results, and images.                         #
+###############################################################################################################
 class MedicalReport(FPDF):
-
-###############################################################################################################
-#                      Generates a professional PDF report for skin cancer analysis.                          #
-#                     The report includes patient information, analysis results, and images.                  #
-# #############################################################################################################                                  
-    
     def __init__(self, icon_path='icon.png'):
         super().__init__()
         self.icon_path = icon_path
 
     def header(self):
-##############################################################################################################
-#                             Add a header with an icon and timestamp to each page.                          #
-##############################################################################################################
-
+        """Add header with icon and timestamp."""
         try:
             self.image(self.icon_path, 10, 8, 33)
         except Exception as e:
@@ -423,21 +319,14 @@ class MedicalReport(FPDF):
         self.ln(10)
 
     def footer(self):
-##############################################################################################################
-#                                    Add page numbers to the footer.                                         #
-##############################################################################################################
-
+        """Add page numbers to footer."""
         self.set_y(-15)
         self.set_font('Arial', 'I', 8)
         self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
     def add_report_content(self, user_data, analysis_data, image_path):
-##############################################################################################################
-#                    Fill the report with patient info, image, and analysis results.                         #
-#                             Patient Info Section                                                           #
-##############################################################################################################
-
-
+        """Fill report with patient info, image, and analysis results."""
+        # Patient Info
         self.set_font('Arial', 'B', 14)
         self.cell(0, 10, 'Patient Information', 0, 1)
         self.set_font('Arial', '', 12)
@@ -446,11 +335,8 @@ class MedicalReport(FPDF):
         self.cell(0, 10, f'Email: {user_data["email"]}', 0, 1)
         self.cell(0, 10, f'Registration Date: {user_data["registration_date"]}', 0, 1)
         self.ln(10)
-###############################################################################################################
-#                                           Clinical Image Section                                            #
-###############################################################################################################
 
-
+        # Clinical Image
         self.set_font('Arial', 'B', 14)
         self.cell(0, 10, 'Clinical Image', 0, 1)
         try:
@@ -460,11 +346,8 @@ class MedicalReport(FPDF):
             self.set_font('Arial', 'I', 10)
             self.cell(0, 10, f'Image unavailable: {str(e)}', 0, 1)
             self.ln(10)
-##############################################################################################################
-#                                            Diagnostic Findings Table                                      #
-##############################################################################################################
 
-
+        # Diagnostic Findings
         self.set_font('Arial', 'B', 14)
         self.cell(0, 10, 'Diagnostic Findings', 0, 1)
         self.set_fill_color(240, 240, 240)
@@ -485,7 +368,7 @@ class MedicalReport(FPDF):
             self.cell(95, 10, param, 1)
             self.cell(95, 10, value, 1, 1)
 
-        # Recommendations Section
+        # Recommendations
         self.ln(10)
         self.set_font('Arial', 'B', 14)
         self.cell(0, 10, 'Clinical Recommendations', 0, 1)
@@ -498,41 +381,44 @@ class MedicalReport(FPDF):
         self.set_font('Arial', 'I', 8)
         self.multi_cell(0, 5, analysis_data["disclaimer"])
 
-# --- GUI Setup ---
+###############################################################################################################
+# GUI Setup                                                                                                   #
+# Uses customtkinter with a dark theme for a modern, user-friendly interface.                                #
+###############################################################################################################
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
 
-# --- Login Page ---
+###############################################################################################################
+# Login Page                                                                                                  #
+# Allows users to log in with their credentials.                                                             #
+###############################################################################################################
 class LoginPage(ctk.CTkFrame):
-    """The login screen where users enter their credentials."""
-    
     def __init__(self, parent):
         super().__init__(parent)
         self.parent = parent
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
-        
-        # Create a centered frame for the login form
+
         frame = ctk.CTkFrame(self, corner_radius=15)
         frame.grid(row=0, column=0, padx=30, pady=30, sticky="nsew")
-        
-        ctk.CTkLabel(frame, text="Skin Cancer Detection Pro", font=("Arial", 18, "bold")).pack(pady=20, anchor="center")
+
+        ctk.CTkLabel(frame, text="Skin Cancer Detection Pro", font=("Arial", 18, "bold")).pack(pady=20)
         ctk.CTkLabel(frame, text="Patient Login", font=("Arial", 24, "bold")).pack(pady=20)
-        
+
         self.username = ctk.CTkEntry(frame, placeholder_text="Username", width=250)
         self.username.pack(pady=10)
         self.password = ctk.CTkEntry(frame, placeholder_text="Password", show="*", width=250)
         self.password.pack(pady=10)
-        
+
         ctk.CTkButton(frame, text="Login", command=self.login, width=250).pack(pady=10)
         ctk.CTkButton(frame, text="Register", command=lambda: self.parent.show_page("RegistrationPage"),
                       width=250, fg_color="transparent", border_width=2).pack(pady=10)
-        
+
         self.error_label = ctk.CTkLabel(frame, text="", text_color="red")
         self.error_label.pack()
 
     def login(self):
-        """Check login credentials and switch to the dashboard if valid."""
+        """Validate credentials and switch to dashboard."""
         username = self.username.get().strip()
         password = self.password.get()
         if not username or not password:
@@ -542,41 +428,44 @@ class LoginPage(ctk.CTkFrame):
         if user and bcrypt.verify(password, user[2]):
             self.parent.current_user = {"user_id": user[0], "username": user[1], "email": user[3]}
             self.parent.show_page("DashboardPage")
+            logging.info(f"User {username} logged in successfully.")
         else:
             self.error_label.configure(text="Invalid credentials")
+            logging.warning(f"Login failed for username: {username}")
 
-# --- Registration Page ---
+###############################################################################################################
+# Registration Page                                                                                           #
+# Allows new users to create an account with basic input validation.                                         #
+###############################################################################################################
 class RegistrationPage(ctk.CTkFrame):
-    """Screen for new users to register an account."""
-    
     def __init__(self, parent):
         super().__init__(parent)
         self.parent = parent
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
-        
+
         frame = ctk.CTkFrame(self, corner_radius=15)
         frame.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
-        
-        ctk.CTkLabel(frame, text="Skin Cancer Detection Pro", font=("Arial", 18, "bold")).pack(pady=20, anchor="center")
+
+        ctk.CTkLabel(frame, text="Skin Cancer Detection Pro", font=("Arial", 18, "bold")).pack(pady=20)
         ctk.CTkLabel(frame, text="New Patient Registration", font=("Arial", 24, "bold")).pack(pady=20)
-        
+
         self.username = ctk.CTkEntry(frame, placeholder_text="Username", width=250)
         self.username.pack(pady=10)
         self.email = ctk.CTkEntry(frame, placeholder_text="Email", width=250)
         self.email.pack(pady=10)
         self.password = ctk.CTkEntry(frame, placeholder_text="Password", show="*", width=250)
         self.password.pack(pady=10)
-        
+
         ctk.CTkButton(frame, text="Register", command=self.register, width=250).pack(pady=10)
         ctk.CTkButton(frame, text="Back to Login", command=lambda: self.parent.show_page("LoginPage"),
                       width=250, fg_color="transparent", border_width=2).pack(pady=10)
-        
+
         self.status_label = ctk.CTkLabel(frame, text="", text_color="green")
         self.status_label.pack()
 
     def register(self):
-        """Handle registration and redirect to login on success."""
+        """Register a new user with validation."""
         username = self.username.get().strip()
         email = self.email.get().strip()
         password = self.password.get()
@@ -586,18 +475,24 @@ class RegistrationPage(ctk.CTkFrame):
         if "@" not in email or "." not in email:
             self.status_label.configure(text="Invalid email format", text_color="red")
             return
+        if len(password) < 8:
+            self.status_label.configure(text="Password must be at least 8 characters", text_color="red")
+            return
         hashed = bcrypt.hash(password)
         user_id = self.parent.db.insert_user(username, hashed, email)
         if user_id:
             self.status_label.configure(text="Registration successful!", text_color="green")
             self.after(2000, lambda: self.parent.show_page("LoginPage"))
+            logging.info(f"User {username} registered successfully.")
         else:
             self.status_label.configure(text="Username or email already taken", text_color="red")
+            logging.warning(f"Registration failed for {username}: username or email taken.")
 
-# --- Dashboard Page ---
+###############################################################################################################
+# Dashboard Page                                                                                              #
+# Main interface for image upload, analysis, and report generation with enhanced feedback and performance.    #
+###############################################################################################################
 class DashboardPage(ctk.CTkFrame):
-    """Main interface for uploading images, analyzing, and managing reports."""
-    
     def __init__(self, parent):
         super().__init__(parent)
         self.parent = parent
@@ -606,7 +501,7 @@ class DashboardPage(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # Header with navigation
+        # Header
         header = ctk.CTkFrame(self, height=60, corner_radius=0, fg_color="#2B2B2B")
         header.grid(row=0, column=0, sticky="nsew")
         try:
@@ -633,14 +528,14 @@ class DashboardPage(ctk.CTkFrame):
         main.grid_columnconfigure(0, weight=2)
         main.grid_columnconfigure(1, weight=1)
 
-        # Image display area
+        # Image display
         self.image_panel = ctk.CTkFrame(main, corner_radius=15)
         self.image_panel.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
         self.image_label = ctk.CTkLabel(self.image_panel, text="Upload Dermatology Image",
                                         font=("Arial", 14), fg_color="#1A1A1A", corner_radius=10)
         self.image_label.pack(expand=True, fill="both", padx=10, pady=10)
 
-        # Control buttons
+        # Controls
         control_panel = ctk.CTkFrame(main, corner_radius=15)
         control_panel.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
         ctk.CTkButton(control_panel, text="Upload Image", height=40,
@@ -653,7 +548,7 @@ class DashboardPage(ctk.CTkFrame):
         ctk.CTkButton(control_panel, text="Export PDF", height=40,
                       font=("Arial", 14), command=self.export_pdf).pack(fill="x", pady=5)
 
-        # Results display
+        # Results
         self.results_frame = ctk.CTkFrame(main, height=200, corner_radius=15)
         self.results_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=10, pady=10)
         self.risk_indicator = ctk.CTkLabel(self.results_frame, text="RISK LEVEL",
@@ -668,13 +563,13 @@ class DashboardPage(ctk.CTkFrame):
         self.results_content = ctk.CTkTextbox(results_text, font=("Arial", 14), wrap="word")
         self.results_content.pack(expand=True, fill="both")
 
-        # Status bar for feedback
+        # Status bar
         self.status_bar = ctk.CTkLabel(self, text="Ready", anchor="w",
                                        font=("Arial", 12), text_color="gray")
         self.status_bar.grid(row=2, column=0, sticky="ew", padx=20, pady=5)
 
     def update_risk_indicator(self, risk_level, cancer_detected):
-        """Update the risk indicator based on analysis results."""
+        """Update risk indicator with color and text based on analysis."""
         colors = {"low": ("#2AA876", "LOW RISK"), "moderate": ("#FFC107", "MODERATE RISK"),
                   "high": ("#DC3545", "HIGH RISK")}
         color, text = colors[risk_level]
@@ -686,44 +581,59 @@ class DashboardPage(ctk.CTkFrame):
         self.risk_indicator.configure(text=text, fg_color=color)
         self.results_header.configure(text_color=color)
 
+    def resize_image(self, image_path, max_size=512):
+        """Resize image for faster processing."""
+        try:
+            img = Image.open(image_path)
+            img.thumbnail((max_size, max_size))
+            temp_path = os.path.join(tempfile.gettempdir(), f"resized_{os.path.basename(image_path)}")
+            img.save(temp_path)
+            return temp_path
+        except Exception as e:
+            logging.error(f"Image resize failed: {e}")
+            raise
+
     def upload(self):
-        """Let the user upload an image and display it."""
+        """Upload and resize an image for display and analysis."""
         path = ctk.filedialog.askopenfilename(filetypes=[("Image Files", "*.jpg *.jpeg *.png")])
         if not path:
             return
-        if os.path.getsize(path) > MAX_IMAGE_SIZE:  # Check size limit (e.g., 10MB)
+        if os.path.getsize(path) > MAX_IMAGE_SIZE:
             self.status_bar.configure(text="Image too large (max 10MB)", text_color="red")
             return
         try:
             filename = f"{uuid.uuid4().hex}{os.path.splitext(path)[1]}"
             dest = os.path.join(UPLOAD_DIR, filename)
             shutil.copy(path, dest)
-            self.image_path = dest
-            self.display_image(dest)
-            self.status_bar.configure(text="Image uploaded successfully", text_color="green")
+            resized_path = self.resize_image(dest)
+            self.image_path = resized_path
+            self.display_image(resized_path)
+            self.status_bar.configure(text="Image uploaded and resized successfully", text_color="green")
+            logging.info(f"Image uploaded: {resized_path}")
         except Exception as e:
             self.status_bar.configure(text=f"Upload failed: {str(e)}", text_color="red")
             logging.error(f"Image upload error: {e}")
 
     def display_image(self, path):
-        """Show the uploaded image in the GUI."""
+        """Display the resized image in the GUI."""
         try:
             img = Image.open(path)
-            img.thumbnail((400, 400))  # Resize to fit nicely
+            img.thumbnail((400, 400))
             ctk_img = ctk.CTkImage(light_image=img, size=img.size)
             self.image_label.configure(image=ctk_img)
-            self.image_label.image = ctk_img  # Keep reference to avoid garbage collection
+            self.image_label.image = ctk_img
         except Exception as e:
             self.image_label.configure(text="Failed to display image")
             logging.error(f"Image display error: {e}")
 
     def analyze(self):
-        """Run skin and cancer detection on the uploaded image."""
+        """Analyze the uploaded image for skin and cancer detection."""
         if not self.image_path:
             self.status_bar.configure(text="Please upload an image first", text_color="red")
             return
         detector = SkinDetector()
         try:
+            self.status_bar.configure(text="Analyzing...", text_color="blue")
             _, skin_ratio = detector.detect_skin(self.image_path)
             cancer_prob, cancer_type, prevalence, advice, risk_level, cancer_detected = detector.detect_cancer(self.image_path)
             self.analysis_data = {
@@ -744,12 +654,13 @@ Risk Level: {risk_level.title()}
 {advice}"""
             self.results_content.delete("1.0", "end")
             self.results_content.insert("end", result_text)
+            logging.info(f"Analysis completed for image: {self.image_path}")
         except Exception as e:
             self.status_bar.configure(text=f"Analysis error: {str(e)}", text_color="red")
             logging.error(f"Analysis failed: {e}")
 
     def save(self):
-        """Save the analysis results to the database."""
+        """Save analysis results to the database."""
         if self.image_path and self.analysis_data:
             try:
                 image_id = self.parent.db.insert_image(self.parent.current_user["user_id"], self.image_path)
@@ -759,14 +670,15 @@ Risk Level: {risk_level.title()}
                         self.analysis_data["cancer_type"], self.analysis_data["advice"])
                     if analysis_id:
                         self.status_bar.configure(text="Analysis saved successfully", text_color="green")
+                        logging.info(f"Analysis saved with ID: {analysis_id}")
                         return
                 self.status_bar.configure(text="Failed to save analysis", text_color="red")
             except Exception as e:
-                logging.error(f"Save failed: {e}")
                 self.status_bar.configure(text=f"Save failed: {str(e)}", text_color="red")
+                logging.error(f"Save failed: {e}")
 
     def export_pdf(self):
-        """Generate and save a PDF report of the analysis."""
+        """Export analysis as a PDF report."""
         if not self.image_path or not self.analysis_data:
             self.status_bar.configure(text="No analysis to export", text_color="red")
             return
@@ -786,7 +698,7 @@ Risk Level: {risk_level.title()}
                 "disclaimer": ("This report is computer-generated and must be reviewed by a qualified medical professional. "
                                "Diagnostic decisions should not be based solely on this automated analysis.")
             }
-            with tempfile.TemporaryDirectory() as tmp_dir:  # Use temp dir to avoid clutter
+            with tempfile.TemporaryDirectory() as tmp_dir:
                 temp_img_path = os.path.join(tmp_dir, "analysis_image.jpg")
                 img = Image.open(self.image_path)
                 img.save(temp_img_path, quality=95)
@@ -795,20 +707,23 @@ Risk Level: {risk_level.title()}
                 pdf.add_report_content(user_data, analysis_data, temp_img_path)
                 pdf.output(file_path)
             self.status_bar.configure(text=f"Report exported to: {file_path}", text_color="green")
-            webbrowser.open(file_path)  # Open the PDF for the user
+            webbrowser.open(file_path)
+            logging.info(f"PDF exported: {file_path}")
         except Exception as e:
             self.status_bar.configure(text=f"Export failed: {str(e)}", text_color="red")
             logging.error(f"PDF export error: {e}")
 
     def logout(self):
-        """Log out and return to the login page."""
+        """Log out and return to login page."""
         self.parent.current_user = None
         self.parent.show_page("LoginPage")
+        logging.info("User logged out.")
 
-# --- History Page ---
+###############################################################################################################
+# History Page                                                                                                #
+# Displays past analyses with options to view or delete them.                                                #
+###############################################################################################################
 class HistoryPage(ctk.CTkFrame):
-    """Displays the user’s past analyses with options to view or delete."""
-    
     def __init__(self, parent):
         super().__init__(parent)
         self.parent = parent
@@ -829,13 +744,13 @@ class HistoryPage(ctk.CTkFrame):
                       command=lambda: self.parent.show_page("DashboardPage")).pack(side="left", padx=20)
         ctk.CTkLabel(header, text="Patient History", font=("Arial", 18, "bold")).pack(side="left", padx=20)
 
-        # Main content split into list and preview
+        # Main content
         main = ctk.CTkFrame(self, fg_color="transparent")
         main.grid(row=1, column=0, sticky="nsew", padx=20, pady=20)
         main.grid_columnconfigure(0, weight=3)
         main.grid_columnconfigure(1, weight=2)
 
-        # Scrollable history list
+        # History list
         history_frame = ctk.CTkScrollableFrame(main, label_text="Previous Analyses",
                                                label_font=("Arial", 16), corner_radius=15)
         history_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
@@ -856,7 +771,7 @@ class HistoryPage(ctk.CTkFrame):
         self.load_history(self.history_frame)
 
     def load_history(self, parent_frame):
-        """Populate the history list with past analyses."""
+        """Load and display user’s past analyses."""
         for widget in parent_frame.winfo_children():
             widget.destroy()
         analyses = self.parent.db.get_user_analyses(self.parent.current_user["user_id"])
@@ -878,7 +793,7 @@ class HistoryPage(ctk.CTkFrame):
                           ).pack(side="right", padx=5)
 
     def show_analysis(self, analysis):
-        """Show details of a selected analysis in the preview area."""
+        """Display details of a selected analysis."""
         try:
             img = Image.open(analysis[7])
             img.thumbnail((300, 300))
@@ -897,31 +812,24 @@ class HistoryPage(ctk.CTkFrame):
         self.preview_text.insert("end", text)
 
     def delete_analysis(self, analysis_id):
-
-###############################################################################################################
-#               Remove an analysis from the database and refresh the list.                                    #
-###############################################################################################################
-
+        """Delete an analysis and refresh the list."""
         if self.parent.db.delete_analysis(analysis_id):
             self.load_history(self.history_frame)
             self.preview_image.configure(image=None, text="Select analysis to view")
             self.preview_text.delete("1.0", "end")
             self.status_bar.configure(text="Analysis deleted successfully", text_color="green")
+            logging.info(f"Analysis {analysis_id} deleted.")
         else:
             self.preview_text.delete("1.0", "end")
             self.preview_text.insert("end", "Deletion failed")
             self.status_bar.configure(text="Deletion failed", text_color="red")
-#################################################################################################################
-#                                                 About Page                                                    #
-#                               Displays information about the app, its developers, and team members.           #
-#################################################################################################################
+            logging.error(f"Failed to delete analysis {analysis_id}")
 
+###############################################################################################################
+# About Page                                                                                                  #
+# Displays app and team information.                                                                         #
+###############################################################################################################
 class AboutPage(ctk.CTkFrame):
-
-###############################################################################################################
-#                          Displays information about the app and its team.                                   #
-###############################################################################################################
-    
     def __init__(self, parent):
         super().__init__(parent)
         self.parent = parent
@@ -931,16 +839,14 @@ class AboutPage(ctk.CTkFrame):
         frame = ctk.CTkFrame(self, corner_radius=15)
         frame.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
 
-        # App info
         ctk.CTkLabel(frame, text="Skin Cancer Detection Pro", font=("Arial", 24, "bold")).pack(pady=20)
-        ctk.CTkLabel(frame, text="Version: 1.0.0", font=("Arial", 16)).pack(pady=5)
+        ctk.CTkLabel(frame, text="Version: 1.0.1", font=("Arial", 16)).pack(pady=5)
 
-        # Developer info
         dev_frame = ctk.CTkFrame(frame, fg_color="transparent")
         dev_frame.pack(pady=20)
         ctk.CTkLabel(dev_frame, text="Developed by: Your Name", font=("Arial", 16, "bold")).pack(anchor="w")
         try:
-            dev_img = Image.open("developer.png")  # Update with your image path
+            dev_img = Image.open("developer.png")
             dev_img = dev_img.resize((100, 100), Image.LANCZOS)
             ctk_dev_img = ctk.CTkImage(light_image=dev_img, size=(100, 100))
             ctk.CTkLabel(dev_frame, image=ctk_dev_img, text="").pack(pady=10)
@@ -948,7 +854,6 @@ class AboutPage(ctk.CTkFrame):
             logging.error(f"Failed to load developer image: {e}")
             ctk.CTkLabel(dev_frame, text="Developer image unavailable", font=("Arial", 14)).pack(pady=10)
 
-        # Team members
         team_frame = ctk.CTkFrame(frame, fg_color="transparent")
         team_frame.pack(pady=20)
         ctk.CTkLabel(team_frame, text="Team Members:", font=("Arial", 18, "bold")).pack(anchor="w")
@@ -973,20 +878,12 @@ class AboutPage(ctk.CTkFrame):
 
         ctk.CTkButton(frame, text="Back to Dashboard", command=lambda: self.parent.show_page("DashboardPage"),
                       width=250).pack(pady=20)
-        
 
-######################################################################################################
-#                                             Main Application                                       #
-#    This class initializes the main application window and handles page transitions.                #
-#    It uses the customtkinter library for a modern UI and manages user sessions and database access.#
-#    The app includes login, registration, dashboard, history, and about pages.                      #
-######################################################################################################
+###############################################################################################################
+# Main Application Class                                                                                      #
+# Manages the app window, page navigation, and cleanup.                                                      #
+###############################################################################################################
 class MedicalApp(ctk.CTk):
-
-##################################################################################################
-#                         The main window and controller for the Skin Cancer Detection app.      #
-##################################################################################################
-
     def __init__(self):
         super().__init__()
         self.title("Skin Cancer Detection")
@@ -999,7 +896,7 @@ class MedicalApp(ctk.CTk):
             logging.error(f"Failed to set app icon: {e}")
         ctk.set_widget_scaling(1.1)
         ctk.set_window_scaling(1.1)
-        
+
         self.db = Database()
         self.current_user = None
         self.pages = {
@@ -1012,25 +909,17 @@ class MedicalApp(ctk.CTk):
         self.show_page("LoginPage")
 
     def show_page(self, page_name):
-
-###########################################################################################
-#                       Switch between different pages in the app.                        #
-###########################################################################################
-
-
+        """Switch between app pages."""
         if hasattr(self, "current_page"):
             self.current_page.destroy()
         self.current_page = self.pages[page_name](self)
         self.current_page.pack(expand=True, fill="both")
 
     def on_closing(self):
-
-###########################################################################################
-#                                Clean up when the app is closed                          #
-###########################################################################################
-
+        """Clean up resources on app close."""
         self.db.close()
         self.destroy()
+        logging.info("Application closed.")
 
 if __name__ == "__main__":
     app = MedicalApp()
